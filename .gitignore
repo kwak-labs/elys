@@ -1,0 +1,25 @@
+vue/node_modules
+vue/dist
+release/
+.idea/
+.vscode/
+.DS_Store
+docs/diagrams
+build
+dist
+dockernet/state
+dockernet/logs
+dockernet/upgrades/binaries
+dockernet/upgrades/cosmovisor
+dockernet/temp.sh
+.env
+scripts/testing/variables.sh
+scripts/csv/dist
+scripts/csv/node_modules
+scripts/csv/.env
+price-feeder
+*-skip
+__debug*
+
+# Kwak
+lmdb-data/

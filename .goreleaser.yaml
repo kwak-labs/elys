@@ -1,0 +1,215 @@
+project_name: elysd
+env:
+  - CGO_ENABLED=1
+builds:
+  - id: elysd-darwin-amd64
+    main: ./cmd/elysd/main.go
+    binary: elysd
+    hooks:
+      pre:
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
+    env:
+      - CC=o64-clang
+      - CGO_LDFLAGS=-L/lib
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    flags:
+      - -mod=readonly
+      - -trimpath
+    ldflags:
+      - -X github.com/cosmos/cosmos-sdk/version.Name=elys
+      - -X github.com/cosmos/cosmos-sdk/version.AppName=elysd
+      - -X github.com/cosmos/cosmos-sdk/version.Version=v{{ .Version }}
+      - -X github.com/cosmos/cosmos-sdk/version.Commit={{ .Commit }}
+      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,static_wasm,pebbledb
+      - -w -s
+      - -linkmode=external
+    tags:
+      - netgo
+      - ledger
+      - static_wasm
+      - pebbledb
+  - id: elysd-darwin-arm64
+    main: ./cmd/elysd/main.go
+    binary: elysd
+    hooks:
+      pre:
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvmstatic_darwin.a -O /lib/libwasmvmstatic_darwin.a
+    env:
+      - CC=oa64-clang
+      - CGO_LDFLAGS=-L/lib
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    flags:
+      - -mod=readonly
+      - -trimpath
+    ldflags:
+      - -X github.com/cosmos/cosmos-sdk/version.Name=elys
+      - -X github.com/cosmos/cosmos-sdk/version.AppName=elysd
+      - -X github.com/cosmos/cosmos-sdk/version.Version=v{{ .Version }}
+      - -X github.com/cosmos/cosmos-sdk/version.Commit={{ .Commit }}
+      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,static_wasm,pebbledb
+      - -w -s
+      - -linkmode=external
+    tags:
+      - netgo
+      - ledger
+      - static_wasm
+      - pebbledb
+  - id: elysd-linux-amd64
+    main: ./cmd/elysd
+    binary: elysd
+    hooks:
+      pre:
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.x86_64.a -O /usr/lib/x86_64-linux-gnu/libwasmvm_muslc.a
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CC=x86_64-linux-gnu-gcc
+    flags:
+      - -mod=readonly
+      - -trimpath
+    ldflags:
+      - -X github.com/cosmos/cosmos-sdk/version.Name=elys
+      - -X github.com/cosmos/cosmos-sdk/version.AppName=elysd
+      - -X github.com/cosmos/cosmos-sdk/version.Version=v{{ .Version }}
+      - -X github.com/cosmos/cosmos-sdk/version.Commit={{ .Commit }}
+      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,muslc,osusergo,pebbledb
+      - -w -s
+      - -linkmode=external
+      - -extldflags '-Wl,-z,muldefs -static -lm'
+    tags:
+      - netgo
+      - ledger
+      - muslc
+      - osusergo
+      - pebbledb
+  - id: elysd-linux-arm64
+    main: ./cmd/elysd
+    binary: elysd
+    hooks:
+      pre:
+        - wget https://github.com/CosmWasm/wasmvm/releases/download/{{ .Env.COSMWASM_VERSION }}/libwasmvm_muslc.aarch64.a -O /usr/lib/aarch64-linux-gnu/libwasmvm_muslc.a
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CC=aarch64-linux-gnu-gcc
+    flags:
+      - -mod=readonly
+      - -trimpath
+    ldflags:
+      - -X github.com/cosmos/cosmos-sdk/version.Name=elys
+      - -X github.com/cosmos/cosmos-sdk/version.AppName=elysd
+      - -X github.com/cosmos/cosmos-sdk/version.Version=v{{ .Version }}
+      - -X github.com/cosmos/cosmos-sdk/version.Commit={{ .Commit }}
+      - -X github.com/cosmos/cosmos-sdk/version.BuildTags=netgo,ledger,muslc,osusergo,pebbledb
+      - -w -s
+      - -linkmode=external
+      - -extldflags '-Wl,-z,muldefs -static -lm'
+    tags:
+      - netgo
+      - ledger
+      - muslc
+      - osusergo
+      - pebbledb
+universal_binaries:
+  - id: elysd-darwin-universal
+    ids:
+      - elysd-darwin-amd64
+      - elysd-darwin-arm64
+    replace: false
+archives:
+  - id: zipped
+    builds:
+      - elysd-darwin-universal
+      - elysd-linux-amd64
+      - elysd-linux-arm64
+      - elysd-darwin-amd64
+      - elysd-darwin-arm64
+    name_template: "{{.ProjectName}}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format: tar.gz
+    files:
+      - none*
+  - id: binaries
+    builds:
+      - elysd-darwin-universal
+      - elysd-linux-amd64
+      - elysd-linux-arm64
+      - elysd-darwin-amd64
+      - elysd-darwin-arm64
+    name_template: "{{.ProjectName}}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format: binary
+    files:
+      - none*
+checksum:
+  name_template: "sha256sum.txt"
+  algorithm: sha256
+# Docs: https://goreleaser.com/customization/changelog/
+changelog:
+  skip: true
+# Docs: https://goreleaser.com/customization/release/
+release:
+  github:
+    owner: elys-network
+    name: elys
+  replace_existing_draft: true
+  header: |
+    ## Description
+
+    Proposal: https://testnet.ping.pub/elys/gov/XXX
+
+    We're thrilled to announce the launch of Elys Network v{{ .Version }}! This update is primarily focused on enhancements and codebase improvements. Here’s a brief overview of what’s new:
+
+    ### Changes
+
+    * item 1
+    * item 2
+    * item 3
+    * ...
+
+    This release is part of our continuous effort to refine and optimize Elys Network. We appreciate the dedication and expertise of our contributors who help make Elys Network more robust and user-friendly.
+
+    Thank you for your ongoing support of Elys Network!
+
+    ## ⚡️ Binaries
+
+    Binaries for Linux and Darwin (amd64 and arm64) are available below.
+    Darwin users can also use the same universal binary `elysd-v{{ .Version }}-darwin-all` for both amd64 and arm64.
+
+    #### 🔨 Build from source
+
+    If you prefer to build from source, you can use the following commands:
+
+    ````bash
+    git clone https://github.com/elys-network/elys
+    cd elys && git checkout v{{ .Version }}
+    make install
+    ````
+
+    ## What's Changed
+
+    See the full changelog [here](https://github.com/elys-network/elys/blob/v{{ .Version }}/CHANGELOG.md)
+  name_template: "v{{.Version}}"
+  mode: replace
+  draft: false
+# Docs: https://goreleaser.com/customization/announce/
+# We could automatically announce the release in
+# - discord
+# - slack
+# - twitter
+# - webhooks
+# - telegram
+# - reddit
+#
+# announce:
+# discord:
+#   enabled: true
+#   message_template: 'New {{.Tag}} is out!'

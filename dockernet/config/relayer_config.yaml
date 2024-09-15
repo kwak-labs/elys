@@ -1,0 +1,44 @@
+global:
+  api-listen-addr: :5183
+  timeout: 10s
+  memo: ""
+  light-cache-size: 20
+chains:
+  elys:
+    type: cosmos
+    value:
+      key: rly1
+      chain-id: ELYS
+      rpc-addr: http://elys1:26657
+      account-prefix: elys
+      keyring-backend: test
+      gas-adjustment: 1.5
+      gas-prices: 0.01uelys
+      debug: false
+      timeout: 20s
+      output-format: json
+      sign-mode: direct
+  band:
+    type: cosmos
+    value:
+      key: rly2
+      chain-id: BAND
+      rpc-addr: http://band1:26657
+      account-prefix: band
+      keyring-backend: test
+      gas-adjustment: 1.5
+      gas-prices: 0.01uband
+      debug: false
+      timeout: 20s
+      output-format: json
+      sign-mode: direct
+
+paths:
+  elys-band:
+    src:
+      chain-id: ELYS
+    dst:
+      chain-id: BAND
+    src-channel-filter:
+      rule: ""
+      channel-list: []
