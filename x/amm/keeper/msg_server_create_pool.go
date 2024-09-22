@@ -7,6 +7,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/elys-network/elys/x/amm/types"
 	ptypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerAmmTypes "github.com/elys-network/elys/indexer/txs/amm"
 )
 
 // CreatePool attempts to create a pool returning the newly created pool ID or an error upon failure.
@@ -42,6 +45,30 @@ func (k msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (
 			sdk.NewAttribute(sdk.AttributeKeySender, msg.GetSigners()[0].String()),
 		),
 	})
+
+	var IndexerPoolAssets []indexerAmmTypes.PoolAsset
+	for _, asset := range msg.PoolAssets {
+		IndexerPoolAssets = append(IndexerPoolAssets, indexerAmmTypes.PoolAsset{
+			Amount: asset.Token.Amount.String(),
+			Denom:  asset.Token.Denom,
+			Weight: asset.Weight.String(),
+		})
+	}
+
+	indexer.QueueTransaction(ctx, indexerAmmTypes.CreatePool{
+		Address: sender.String(),
+		PoolId:  poolId,
+		PoolParams: indexerAmmTypes.PoolParams{
+			SwapFee:                     msg.PoolParams.SwapFee.String(),
+			ExitFee:                     msg.PoolParams.ExitFee.String(),
+			UseOracle:                   msg.PoolParams.UseOracle,
+			WeightBreakingFeeMultiplier: msg.PoolParams.WeightBreakingFeeMultiplier.String(),
+			WeightBreakingFeeExponent:   msg.PoolParams.WeightBreakingFeeExponent.String(),
+			ThresholdWeightDifference:   msg.GetPoolParams().ThresholdWeightDifference.String(),
+			FeeDenom:                    msg.PoolParams.FeeDenom,
+		},
+		PoolAssets: IndexerPoolAssets,
+	}, []string{})
 
 	return &types.MsgCreatePoolResponse{
 		PoolID: poolId,

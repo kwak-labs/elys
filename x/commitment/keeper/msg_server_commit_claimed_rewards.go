@@ -8,6 +8,9 @@ import (
 	assetprofiletypes "github.com/elys-network/elys/x/assetprofile/types"
 	"github.com/elys-network/elys/x/commitment/types"
 	ptypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 // CommitClaimedRewards commit the tokens on unclaimed store to committed
@@ -76,6 +79,12 @@ func (k msgServer) CommitClaimedRewards(goCtx context.Context, msg *types.MsgCom
 	if err != nil {
 		return nil, err
 	}
+
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.CommitClaimedRewards{
+		Address: creator.String(),
+		Amount:  msg.Amount.String(),
+		Denom:   msg.Denom,
+	}, []string{})
 
 	// Emit blockchain event
 	ctx.EventManager().EmitEvent(

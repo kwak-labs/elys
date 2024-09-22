@@ -9,6 +9,9 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/elys-network/elys/x/commitment/types"
 	paramtypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 func (k msgServer) Unstake(goCtx context.Context, msg *types.MsgUnstake) (*types.MsgUnstakeResponse, error) {
@@ -57,6 +60,13 @@ func (k msgServer) performUnstakeElys(ctx sdk.Context, msg *types.MsgUnstake) er
 	if _, err := msgServer.Undelegate(sdk.WrapSDKContext(ctx), msgMsgUndelegate); err != nil { // Discard the response because it's empty
 		return errorsmod.Wrap(err, "elys unstake msg")
 	}
+
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.MsgUnstake{
+		Address:          address.String(),
+		Amount:           amount.Amount.String(),
+		Denom:            amount.Denom,
+		ValidatorAddress: validator_address.String(),
+	}, []string{})
 
 	return nil
 }

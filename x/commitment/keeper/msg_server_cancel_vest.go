@@ -8,6 +8,9 @@ import (
 
 	"github.com/elys-network/elys/x/commitment/types"
 	ptypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 // CancelVest cancel the user's vesting and the user reject to get vested tokens
@@ -69,6 +72,12 @@ func (k msgServer) CancelVest(goCtx context.Context, msg *types.MsgCancelVest) (
 			sdk.NewAttribute(types.AttributeDenom, ptypes.Eden),
 		),
 	)
+
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.CancelVest{
+		Address: creator.String(),
+		Denom:   msg.Denom,
+		Amount:  msg.Amount.String(),
+	}, []string{})
 
 	return &types.MsgCancelVestResponse{}, nil
 }

@@ -19,5 +19,7 @@ func (k msgServer) VestLiquid(goCtx context.Context, msg *types.MsgVestLiquid) (
 		return &types.MsgVestLiquidResponse{}, err
 	}
 
+	// Indexer function is located inside the function above
+
 	return &types.MsgVestLiquidResponse{}, nil
 }

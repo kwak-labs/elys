@@ -7,6 +7,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/elys-network/elys/x/amm/types"
 	oracletypes "github.com/elys-network/elys/x/oracle/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerAmmTypes "github.com/elys-network/elys/indexer/txs/amm"
 )
 
 func AssetsValue(ctx sdk.Context, oracleKeeper types.OracleKeeper, amountDepthInfo []types.AssetAmountDepth) (sdk.Dec, sdk.Dec, error) {
@@ -94,6 +97,28 @@ func (k msgServer) FeedMultipleExternalLiquidity(goCtx context.Context, msg *typ
 			return nil, err
 		}
 	}
+
+	var IndexerExternalLiquidity []indexerAmmTypes.ExternalLiquidity
+	for _, Liquidity := range msg.Liquidity {
+		var AmountDepthInfo []indexerAmmTypes.AssetAmountDepth
+		for _, AssetAmountDepth := range Liquidity.AmountDepthInfo {
+			AmountDepthInfo = append(AmountDepthInfo, indexerAmmTypes.AssetAmountDepth{
+				Asset:  AssetAmountDepth.Asset,
+				Amount: AssetAmountDepth.Amount.String(),
+				Depth:  AssetAmountDepth.Depth.String(),
+			})
+		}
+
+		IndexerExternalLiquidity = append(IndexerExternalLiquidity, indexerAmmTypes.ExternalLiquidity{
+			PoolId:          Liquidity.PoolId,
+			AmountDepthInfo: AmountDepthInfo,
+		})
+	}
+
+	indexer.QueueTransaction(ctx, indexerAmmTypes.FeedMultipleExternalLiquidity{
+		Address:   msg.Sender,
+		Liquidity: IndexerExternalLiquidity,
+	}, []string{})
 
 	return &types.MsgFeedMultipleExternalLiquidityResponse{}, nil
 }

@@ -10,6 +10,9 @@ import (
 	assetprofiletypes "github.com/elys-network/elys/x/assetprofile/types"
 	"github.com/elys-network/elys/x/commitment/types"
 	ptypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 func (k Keeper) UncommitTokens(ctx sdk.Context, addr sdk.AccAddress, denom string, amount math.Int) error {
@@ -92,6 +95,14 @@ func (k Keeper) UncommitTokens(ctx sdk.Context, addr sdk.AccAddress, denom strin
 			sdk.NewAttribute(types.AttributeDenom, denom),
 		),
 	)
+
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.UncommitTokens{
+		Address:        addr.String(),
+		DeductedDenom:  denom,
+		DeductedAmount: amount.String(),
+		EdenAmount:     edenAmount.String(),
+		EdenBAmount:    edenBAmount.String(),
+	}, []string{})
 	return nil
 }
 

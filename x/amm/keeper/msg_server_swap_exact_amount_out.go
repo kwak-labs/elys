@@ -5,6 +5,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/elys-network/elys/x/amm/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerAmmTypes "github.com/elys-network/elys/indexer/txs/amm"
 )
 
 func (k msgServer) SwapExactAmountOut(goCtx context.Context, msg *types.MsgSwapExactAmountOut) (*types.MsgSwapExactAmountOutResponse, error) {
@@ -37,6 +40,31 @@ func (k msgServer) SwapExactAmountOut(goCtx context.Context, msg *types.MsgSwapE
 			sdk.NewAttribute(sdk.AttributeKeySender, msg.Sender),
 		),
 	})
+
+	var IndexerOutRoutes []indexerAmmTypes.SwapAmountOutRoute
+	for _, OutRoute := range msg.Routes {
+		IndexerOutRoutes = append(IndexerOutRoutes, indexerAmmTypes.SwapAmountOutRoute{
+			PoolId:       OutRoute.PoolId,
+			TokenInDenom: OutRoute.TokenInDenom,
+		})
+	}
+
+	indexer.QueueTransaction(ctx, indexerAmmTypes.SwapExactAmountOut{
+		Address:   msg.Sender,
+		Recipient: msg.Recipient,
+		TokenOut: indexerAmmTypes.Token{
+			Amount: msg.TokenOut.Amount.String(),
+			Denom:  msg.TokenOut.Denom,
+		},
+		TokenInMaxAmount: msg.TokenInMaxAmount.String(),
+		Discount:         discount.String(),
+		SwapFee:          swapFee.String(),
+		OutRoute:         IndexerOutRoutes,
+		TokenIn: indexerAmmTypes.Token{
+			Denom:  msg.Routes[0].TokenInDenom,
+			Amount: tokenInAmount.String(),
+		},
+	}, []string{msg.Recipient})
 
 	return &types.MsgSwapExactAmountOutResponse{
 		TokenInAmount: tokenInAmount,

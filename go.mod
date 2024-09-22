@@ -10,6 +10,7 @@ require (
 	github.com/CosmWasm/wasmd v0.41.0
 	github.com/CosmWasm/wasmvm v1.3.1
 	github.com/bandprotocol/bandchain-packet v0.0.2
+	github.com/bmatsuo/lmdb-go v1.8.0
 	github.com/cometbft/cometbft v0.37.6
 	github.com/cometbft/cometbft-db v0.11.0
 	github.com/cosmos/cosmos-sdk v0.47.11
@@ -36,7 +37,6 @@ require (
 	cosmossdk.io/log v1.3.1 // indirect
 	cosmossdk.io/tools/rosetta v0.2.1 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
-	github.com/bmatsuo/lmdb-go v1.8.0 // indirect
 	github.com/cockroachdb/errors v1.11.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v1.1.0 // indirect

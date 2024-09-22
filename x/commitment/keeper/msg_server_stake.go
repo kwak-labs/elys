@@ -11,7 +11,7 @@ import (
 	paramtypes "github.com/elys-network/elys/x/parameter/types"
 
 	indexer "github.com/elys-network/elys/indexer"
-	indexerTypes "github.com/elys-network/elys/indexer/txs/commitments"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 func (k msgServer) Stake(goCtx context.Context, msg *types.MsgStake) (*types.MsgStakeResponse, error) {
@@ -64,12 +64,12 @@ func (k msgServer) performStakeElys(ctx sdk.Context, msg *types.MsgStake) error 
 	}
 
 	// Queue the transaction for indexing
-	indexer.QueueTransaction(ctx, indexerTypes.CommitmentMsgStake{
-		Sender_address:    address.String(),
-		Amount:            amount.Amount.String(),
-		Denom:             amount.Denom,
-		Validator_address: validator_address.String(),
-	})
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.MsgStake{
+		Address:          address.String(),
+		Amount:           amount.Amount.String(),
+		Denom:            amount.Denom,
+		ValidatorAddress: validator_address.String(),
+	}, []string{})
 
 	return nil
 }

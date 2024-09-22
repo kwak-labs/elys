@@ -6,8 +6,10 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/elys-network/elys/x/commitment/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 // Vest converts user's commitment to vesting - start with unclaimed rewards and if it's not enough deduct from committed bucket
@@ -54,6 +56,16 @@ func (k Keeper) ProcessTokenVesting(ctx sdk.Context, denom string, amount math.I
 		NumBlocks:            vestingInfo.NumBlocks,
 		VestStartedTimestamp: ctx.BlockTime().Unix(),
 	})
+
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.VestLiquid{
+		Address:              creator.String(),
+		Amount:               amount.String(),
+		Denom:                denom,
+		StartBlock:           ctx.BlockHeight(),
+		NumBlocks:            vestingInfo.NumBlocks,
+		VestStartedTimestamp: ctx.BlockTime().Unix(),
+	}, []string{})
+
 	commitments.VestingTokens = vestingTokens
 
 	// Update the commitments

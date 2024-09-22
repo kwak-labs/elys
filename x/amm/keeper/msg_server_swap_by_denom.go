@@ -8,6 +8,9 @@ import (
 	"github.com/elys-network/elys/x/amm/types"
 	assetprofiletypes "github.com/elys-network/elys/x/assetprofile/types"
 	ptypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerAmmTypes "github.com/elys-network/elys/indexer/txs/amm"
 )
 
 func (k msgServer) SwapByDenom(goCtx context.Context, msg *types.MsgSwapByDenom) (*types.MsgSwapByDenomResponse, error) {
@@ -94,6 +97,44 @@ func (k msgServer) SwapByDenom(goCtx context.Context, msg *types.MsgSwapByDenom)
 		if err != nil {
 			return nil, err
 		}
+
+		// kwak indexer functions
+
+		var IndexerOutRoutes []indexerAmmTypes.SwapAmountOutRoute
+		for _, OutRoute := range outRoute {
+			IndexerOutRoutes = append(IndexerOutRoutes, indexerAmmTypes.SwapAmountOutRoute{
+				PoolId:       OutRoute.PoolId,
+				TokenInDenom: OutRoute.TokenInDenom,
+			})
+		}
+
+		indexer.QueueTransaction(ctx, indexerAmmTypes.SwapByDenom{
+			Address:   msg.Sender,
+			Recipient: msg.Recipient,
+			TokenIn: indexerAmmTypes.Token{
+				Amount: msg.Amount.Amount.String(),
+				Denom:  msg.Amount.Denom,
+			},
+			TokenOutMin: indexerAmmTypes.Token{
+				Amount: msg.MinAmount.Amount.String(),
+				Denom:  msg.MinAmount.Denom,
+			},
+			MaxAmount: indexerAmmTypes.Token{
+				Amount: msg.MaxAmount.Amount.String(),
+				Denom:  msg.MaxAmount.Denom,
+			},
+			SwapFee:   res.SwapFee.String(),
+			SpotPrice: spotPrice.String(),
+			Discount:  res.Discount.String(),
+			InRoute:   nil,
+			OutRoute:  IndexerOutRoutes,
+			TokenOut: indexerAmmTypes.Token{
+				Amount: res.TokenInAmount.String(),
+				Denom:  msg.DenomOut,
+			},
+		}, []string{msg.Recipient})
+
+		// End of kwak indexer
 
 		return &types.MsgSwapByDenomResponse{
 			Amount:    sdk.NewCoin(msg.DenomOut, res.TokenInAmount),

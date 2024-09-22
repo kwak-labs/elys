@@ -7,6 +7,9 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/elys-network/elys/x/amm/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerAmmTypes "github.com/elys-network/elys/indexer/txs/amm"
 )
 
 func (k msgServer) SwapExactAmountIn(goCtx context.Context, msg *types.MsgSwapExactAmountIn) (*types.MsgSwapExactAmountInResponse, error) {
@@ -40,6 +43,33 @@ func (k msgServer) SwapExactAmountIn(goCtx context.Context, msg *types.MsgSwapEx
 			sdk.NewAttribute(sdk.AttributeKeySender, msg.Sender),
 		),
 	})
+
+	var IndexerInRoutes []indexerAmmTypes.SwapAmountInRoute
+	for _, OutRoute := range msg.Routes {
+		IndexerInRoutes = append(IndexerInRoutes, indexerAmmTypes.SwapAmountInRoute{
+			PoolId:        OutRoute.PoolId,
+			TokenOutDenom: OutRoute.TokenOutDenom,
+		})
+	}
+
+	lastRoute := msg.Routes[len(msg.Routes)-1]
+
+	indexer.QueueTransaction(ctx, indexerAmmTypes.SwapExactAmountIn{
+		Address:   msg.Sender,
+		Recipient: msg.Recipient,
+		TokenIn: indexerAmmTypes.Token{
+			Amount: msg.TokenIn.Amount.String(),
+			Denom:  msg.TokenIn.Denom,
+		},
+		TokenOutMin: msg.TokenOutMinAmount.String(),
+		Discount:    discount.String(),
+		SwapFee:     swapFee.String(),
+		InRoute:     IndexerInRoutes,
+		TokenOut: indexerAmmTypes.Token{
+			Denom:  lastRoute.TokenOutDenom,
+			Amount: tokenOutAmount.String(),
+		},
+	}, []string{msg.Recipient})
 
 	return &types.MsgSwapExactAmountInResponse{
 		TokenOutAmount: tokenOutAmount,

@@ -5,6 +5,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/elys-network/elys/x/amm/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerAmmTypes "github.com/elys-network/elys/indexer/txs/amm"
 )
 
 // JoinPool routes `JoinPoolNoSwap` where we do an abstract calculation on needed lp liquidity coins to get the designated
@@ -39,6 +42,31 @@ func (k msgServer) JoinPool(goCtx context.Context, msg *types.MsgJoinPool) (*typ
 			sdk.NewAttribute(sdk.AttributeKeySender, msg.Sender),
 		),
 	})
+
+	var IndexerMaxAmountsIn []indexerAmmTypes.MaxAmountIn
+	for _, AmountIn := range msg.MaxAmountsIn {
+		IndexerMaxAmountsIn = append(IndexerMaxAmountsIn, indexerAmmTypes.MaxAmountIn{
+			Denom:  AmountIn.Denom,
+			Amount: AmountIn.Amount.String(),
+		})
+	}
+
+	var IndexerTokensIn []indexerAmmTypes.TokenIn
+	for _, TokenIn := range neededLp {
+		IndexerTokensIn = append(IndexerTokensIn, indexerAmmTypes.TokenIn{
+			Amount: TokenIn.Amount.String(),
+			Denom:  TokenIn.Denom,
+		})
+	}
+
+	indexer.QueueTransaction(ctx, indexerAmmTypes.JoinPool{
+		Address:        sender.String(),
+		PoolId:         msg.PoolId,
+		MaxAmountsIn:   IndexerMaxAmountsIn,
+		ShareAmountOut: msg.ShareAmountOut.String(),
+		TokensIn:       IndexerTokensIn,
+		SharesOut:      sharesOut.String(),
+	}, []string{""})
 
 	return &types.MsgJoinPoolResponse{
 		ShareAmountOut: sharesOut,

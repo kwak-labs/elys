@@ -7,6 +7,9 @@ import (
 
 	"github.com/elys-network/elys/x/commitment/types"
 	ptypes "github.com/elys-network/elys/x/parameter/types"
+
+	indexer "github.com/elys-network/elys/indexer"
+	indexerCommitmentsTypes "github.com/elys-network/elys/indexer/txs/commitments"
 )
 
 // ClaimVesting claims already vested amount
@@ -51,6 +54,20 @@ func (k msgServer) ClaimVesting(goCtx context.Context, msg *types.MsgClaimVestin
 			sdk.NewAttribute(types.AttributeAmount, newClaims.String()),
 		),
 	)
+
+	var indexerClaims []indexerCommitmentsTypes.Claim
+
+	for _, claim := range newClaims {
+		indexerClaims = append(indexerClaims, indexerCommitmentsTypes.Claim{
+			Denom:  claim.Denom,
+			Amount: claim.Amount.String(),
+		})
+	}
+
+	indexer.QueueTransaction(ctx, indexerCommitmentsTypes.ClaimVesting{
+		Address: sender.String(),
+		Claims:  indexerClaims,
+	}, []string{})
 
 	return &types.MsgClaimVestingResponse{}, nil
 }

@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/bmatsuo/lmdb-go/lmdb"
+
+	indexerTypes "github.com/elys-network/elys/indexer/types"
 )
 
 // LMDBManager handles LMDB operations for storing and retrieving transactions
@@ -50,13 +52,13 @@ func NewLMDBManager(path string, totalIndexLength *uint64) (*LMDBManager, error)
 	// Initialize databases
 	err = env.Update(func(txn *lmdb.Txn) error {
 		var err error
-		if manager.txDB, err = txn.CreateDBI("txs"); err != nil {
+		if manager.txDB, err = txn.OpenDBI("txs", lmdb.Create); err != nil {
 			return err
 		}
-		if manager.addressDB, err = txn.CreateDBI("addresses"); err != nil {
+		if manager.addressDB, err = txn.OpenDBI("addresses", lmdb.Create|lmdb.DupSort); err != nil {
 			return err
 		}
-		if manager.txCountDB, err = txn.CreateDBI("txcount"); err != nil {
+		if manager.txCountDB, err = txn.OpenDBI("txcount", lmdb.Create); err != nil {
 			return err
 		}
 
@@ -114,16 +116,26 @@ func (m *LMDBManager) CheckAndResizeIfNeeded() error {
 }
 
 // ProcessNewTx adds a new transaction to the database
-func (m *LMDBManager) ProcessNewTx(tx interface{}, address string) error {
+func (m *LMDBManager) ProcessNewTx(tx indexerTypes.GenericTransaction, address string) error {
 	if err := m.CheckAndResizeIfNeeded(); err != nil {
 		return err
 	}
 
 	return m.env.Update(func(txn *lmdb.Txn) error {
-		count, err := m.incrementTxCount(txn)
-		if err != nil {
-			return err
+		// Increment the total index length
+
+		fmt.Printf("Before increment: %d\n", *m.totalIndexLength)
+		*m.totalIndexLength++
+		fmt.Printf("After increment: %d\n", *m.totalIndexLength)
+		count := *m.totalIndexLength
+
+		// Store the new count in the database
+		countBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(countBytes, count)
+		if err := txn.Put(m.txCountDB, []byte("count"), countBytes, 0); err != nil {
+			return fmt.Errorf("error storing new count: %v", err)
 		}
+
 		fmt.Printf("New Count: %d\n", count)
 
 		// Store the transaction
@@ -138,52 +150,20 @@ func (m *LMDBManager) ProcessNewTx(tx interface{}, address string) error {
 			return err
 		}
 
-		// Update the address index
-		var indices []uint64
-		indicesBytes, err := txn.Get(m.addressDB, []byte(address))
-		if err != nil {
-			if !lmdb.IsNotFound(err) {
-				return err
-			}
-			indices = []uint64{}
-		} else {
-			if err := json.Unmarshal(indicesBytes, &indices); err != nil {
-				return err
-			}
-		}
-
-		indices = append(indices, count)
-		newIndicesBytes, err := json.Marshal(indices)
-		if err != nil {
+		// Update the address index for the main address
+		if err := txn.Put(m.addressDB, []byte(address), indexBytes, 0); err != nil {
 			return err
 		}
 
-		return txn.Put(m.addressDB, []byte(address), newIndicesBytes, 0)
-	})
-}
-
-// incrementTxCount increases the transaction count and returns the new value
-func (m *LMDBManager) incrementTxCount(txn *lmdb.Txn) (uint64, error) {
-	var count uint64
-	countBytes, err := txn.Get(m.txCountDB, []byte("count"))
-	if err != nil {
-		if !lmdb.IsNotFound(err) {
-			return 0, fmt.Errorf("error retrieving count: %v", err)
+		// Update the address index for all included addresses
+		for _, includedAddress := range tx.BaseTransaction.IncludedAddresses {
+			if err := txn.Put(m.addressDB, []byte(includedAddress), indexBytes, 0); err != nil {
+				return err
+			}
 		}
-		count = 0
-	} else {
-		count = binary.BigEndian.Uint64(countBytes)
-	}
 
-	count++
-	countBytes = make([]byte, 8)
-	binary.BigEndian.PutUint64(countBytes, count)
-	if err := txn.Put(m.txCountDB, []byte("count"), countBytes, 0); err != nil {
-		return 0, fmt.Errorf("error storing new count: %v", err)
-	}
-
-	*m.totalIndexLength = count
-	return count, nil
+		return nil
+	})
 }
 
 // GetTxCount returns the total number of transactions
@@ -192,8 +172,8 @@ func (m *LMDBManager) GetTxCount() uint64 {
 }
 
 // GetTxByIndex retrieves a transaction by its index
-func (m *LMDBManager) GetTxByIndex(index uint64) (interface{}, error) {
-	var tx interface{}
+func (m *LMDBManager) GetTxByIndex(index uint64) (indexerTypes.GenericTransaction, error) {
+	var tx indexerTypes.GenericTransaction
 	err := m.env.View(func(txn *lmdb.Txn) error {
 		indexBytes := make([]byte, 8)
 		binary.BigEndian.PutUint64(indexBytes, index)
@@ -207,31 +187,46 @@ func (m *LMDBManager) GetTxByIndex(index uint64) (interface{}, error) {
 }
 
 // GetTxsByAddress retrieves all transactions for a given address
-func (m *LMDBManager) GetTxsByAddress(address string) ([]interface{}, error) {
-	var txs []interface{}
+func (m *LMDBManager) GetTxsByAddress(address string) ([]indexerTypes.GenericTransaction, error) {
+	var txs []indexerTypes.GenericTransaction
 	err := m.env.View(func(txn *lmdb.Txn) error {
-		indicesBytes, err := txn.Get(m.addressDB, []byte(address))
-		if err == lmdb.NotFound {
-			return nil
+		cursor, err := txn.OpenCursor(m.addressDB)
+		if err != nil {
+			return fmt.Errorf("error opening cursor: %v", err)
+		}
+		defer cursor.Close()
+
+		_, value, err := cursor.Get([]byte(address), nil, lmdb.SetKey)
+		if lmdb.IsNotFound(err) {
+			return nil // No transactions found for this address
 		} else if err != nil {
-			return err
+			return fmt.Errorf("error in initial cursor.Get: %v", err)
 		}
 
-		var indices []uint64
-		if err := json.Unmarshal(indicesBytes, &indices); err != nil {
-			return err
-		}
-
-		for _, index := range indices {
+		for {
+			index := binary.BigEndian.Uint64(value)
 			tx, err := m.GetTxByIndex(index)
 			if err != nil {
-				return err
+				return fmt.Errorf("error getting transaction by index %d: %v", index, err)
 			}
 			txs = append(txs, tx)
+
+			_, value, err = cursor.Get(nil, nil, lmdb.NextDup)
+			if lmdb.IsNotFound(err) {
+				// Reached the end of the transactions
+				break
+			} else if err != nil {
+				return fmt.Errorf("error in cursor.Get for NextDup: %v", err)
+			}
 		}
 		return nil
 	})
-	return txs, err
+
+	if err != nil {
+		return nil, err
+	}
+
+	return txs, nil
 }
 
 // Close shuts down the LMDB environment
